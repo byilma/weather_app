@@ -25,7 +25,7 @@ One screen: today's score (1-10), one word, one sentence, and at most one callou
 - `App.tsx` — the single screen: place (swipe between saved cities), score, word (tap it for the vibe), what to wear, one callout, the day's hours as a skyline, the week.
 
 ## Website
-- `docs/index.html` and `docs/privacy.html` — the one-page Skyscore site and privacy policy. Host them anywhere static. On GitHub: Settings → Pages → "Deploy from a branch" → your main branch, `/docs` folder. Replace `[your email]` in both before sharing.
+- `docs/index.html` and `docs/privacy.html` — the one-page Skyscore site and privacy policy. Host them anywhere static. On GitHub: Settings → Pages → "Deploy from a branch" → your main branch, `/docs` folder. Contact email: skyscore.app@gmail.com.
 
 ## App Store
 - `store/listing.md` — listing text (name, subtitle, description, keywords) and App Privacy answers.
