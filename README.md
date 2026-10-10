@@ -24,6 +24,9 @@ One screen: today's score (1-10), one word, one sentence, and at most one callou
 - `src/track.ts` — private tap counting (opens, Plans, which partner was tapped). Off until you paste a PostHog key; never sends location.
 - `App.tsx` — the single screen: place (swipe between saved cities), score, word (tap it for the vibe), what to wear, one callout, the day's hours as a skyline, the week.
 
+## Website
+- `docs/index.html` and `docs/privacy.html` — the one-page Skyscore site and privacy policy. Host them anywhere static. On GitHub: Settings → Pages → "Deploy from a branch" → your main branch, `/docs` folder. Replace `[your email]` in both before sharing.
+
 ## Before the stores
 - `com.skyscore.app` in `app.json` is a placeholder bundle id: register your own (e.g. with your domain) before the first build.
 - Fill in `AFFILIATE` in `src/partners.ts` as partner programs approve you (start with Impact: Fever, SeatGeek, Ticketmaster, ClassPass; then Viator directly).
