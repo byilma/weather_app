@@ -9,6 +9,12 @@ import * as Sharing from 'expo-sharing';
 import type { DayVibe } from './vibe';
 import { F, INK } from './theme';
 
+// TODO: once Skyscore is in the stores, put the download link here (e.g. your site's
+// short URL that redirects to the right store). It prints on every shared card, so each
+// share carries a way to get the app. Images can't carry tappable links reliably on
+// every platform, so a short, readable URL is the dependable option.
+const APP_LINK = '';
+
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -70,7 +76,10 @@ export function ShareCard({ visible, onClose, onShared, place, day, colors }: Pr
               <Text style={styles.cardVibe}>{day.feeling}</Text>
             </View>
 
-            <Text style={styles.wordmark}>Skyscore</Text>
+            <View style={styles.cardBottom}>
+              <Text style={styles.wordmark}>Skyscore</Text>
+              {!!APP_LINK && <Text style={styles.appLink}>{APP_LINK}</Text>}
+            </View>
           </View>
 
           <Pressable
@@ -103,7 +112,9 @@ const styles = StyleSheet.create({
   cardOutOf: { color: INK.soft, fontFamily: F.scoreB, position: 'absolute', left: '100%', marginLeft: 3 },
   cardWord: { color: INK.full, fontFamily: F.scoreXB, fontSize: 40, lineHeight: 44, marginTop: -4 },
   cardVibe: { color: INK.full, fontFamily: F.italic, fontSize: 15, lineHeight: 21, textAlign: 'center', marginTop: 8, maxWidth: '88%' },
+  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   wordmark: { color: INK.strong, fontFamily: F.scoreB, fontSize: 18, letterSpacing: 0.5 },
+  appLink: { color: INK.strong, fontFamily: F.semi, fontSize: 13 },
   shareButton: { marginTop: 22, backgroundColor: INK.full, borderRadius: 999, paddingVertical: 13, paddingHorizontal: 44 },
   dim: { opacity: 0.6 },
   shareText: { color: INK.onWhite, fontFamily: F.bold, fontSize: 17 },

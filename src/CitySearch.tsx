@@ -120,6 +120,7 @@ export function CitySearch({ visible, background, onClose, onPick, current, save
                 {saved.length === 0 && (
                   <Text style={styles.hint}>Search a city to save it. Then swipe left and right to flip between your cities.</Text>
                 )}
+                <Text style={styles.credit}>Weather data by Open-Meteo.com</Text>
               </View>
             )
           }
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   section: { color: INK.strong, fontFamily: F.semi, fontSize: 14, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 4 },
+  credit: { color: INK.strong, fontFamily: F.text, fontSize: 12, paddingHorizontal: 22, paddingTop: 22 },
   hint: { color: INK.strong, fontFamily: F.text, fontSize: 15, lineHeight: 21, paddingHorizontal: 22, paddingTop: 18 },
   score: { alignItems: 'center', minWidth: 56 },
   scoreNum: { color: INK.full, fontFamily: F.scoreXB, fontSize: 28, lineHeight: 30 },

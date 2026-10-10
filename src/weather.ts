@@ -2,8 +2,8 @@
 // be swapped (Open-Meteo for prototyping -> Apple WeatherKit / NWS for launch)
 // without touching the vibe engine or the UI.
 //
-// NOTE: Open-Meteo's free API is for non-commercial use / prototyping only.
-// Swap to WeatherKit (or Open-Meteo's paid plan) before monetized launch.
+// NOTE: Open-Meteo's free API is for non-commercial use only. See OPEN_METEO_KEY below.
+// Its data is CC BY 4.0, so the app credits "Weather data by Open-Meteo.com" (city list).
 
 // What is falling from the sky (if anything). Comes from the WMO weather code.
 export type Sky = 'snow' | 'storm' | 'other';
@@ -51,11 +51,18 @@ const SNOW_CODES = new Set([71, 73, 75, 77, 85, 86]);
 const skyFor = (code: number | null | undefined): Sky =>
   code == null ? 'other' : code >= 95 ? 'storm' : SNOW_CODES.has(code) ? 'snow' : 'other';
 
+// Before launch (Skyscore earns commissions, so it counts as commercial use):
+// subscribe to Open-Meteo's "API Standard" plan and paste the key below. The API is
+// identical; only the host and an apikey parameter change. Leave empty for testing.
+export const OPEN_METEO_KEY = '';
+const FORECAST_HOST = OPEN_METEO_KEY ? 'https://customer-api.open-meteo.com' : 'https://api.open-meteo.com';
+
 export async function fetchForecast(lat: number, lon: number): Promise<Forecast> {
   const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `${FORECAST_HOST}/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&hourly=${HOURLY}&daily=sunrise,sunset&forecast_days=7&timezone=auto` +
-    `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch`;
+    `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch` +
+    (OPEN_METEO_KEY ? `&apikey=${OPEN_METEO_KEY}` : '');
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Weather request failed (${res.status})`);
   const j = await res.json();

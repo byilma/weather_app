@@ -10,14 +10,15 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchForecast, liveNow, type Forecast } from './src/weather';
 import { calloutForToday, groupDays, vibeForDay, type Callout, type CalloutIcon, type DayVibe } from './src/vibe';
-import { currentPlace, DEFAULT_PLACE, distanceKm, placeKey, TRIP_KM, type Place } from './src/places';
+import { currentPlace, DEFAULT_PLACE, distanceKm, NEAR_KM, placeKey, type Place } from './src/places';
 import { CitySearch, type CityRow } from './src/CitySearch';
-import { loadCities, MAX_CITIES, saveCities } from './src/storage';
+import { loadCities, loadMapsApp, MAX_CITIES, saveCities, saveMapsApp } from './src/storage';
+import { defaultMapsApp, type MapsApp } from './src/partners';
 import { track } from './src/track';
 import { Sky } from './src/Sky';
 import { ShareCard } from './src/ShareCard';
 import { PlansSheet } from './src/PlansSheet';
-import { plansFor, tripPlansFor, type PlanKind } from './src/plans';
+import { plansFor, type PlanKind } from './src/plans';
 import { skyLook } from './src/skyclock';
 import { F, FONT_ASSETS, INK } from './src/theme';
 
@@ -51,6 +52,7 @@ function Home() {
   const [searching, setSearching] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [plansOpen, setPlansOpen] = useState<{ focus?: PlanKind } | null>(null);
+  const [mapsApp, setMapsApp] = useState<MapsApp>(defaultMapsApp());
   const [, setTick] = useState(0); // re-render each minute so the sky and "now" keep moving
   const inflight = useRef(new Set<string>());
   const forecastsRef = useRef(forecasts);
@@ -58,6 +60,7 @@ function Home() {
 
   // Start: where the phone is, plus the saved cities.
   useEffect(() => {
+    loadMapsApp().then((app) => app && setMapsApp(app));
     Promise.all([currentPlace(), loadCities()]).then(([here, list]) => {
       setCurrent(here);
       setSaved(list);
@@ -217,18 +220,16 @@ function Home() {
   // leave it out rather than searching for "Your location".
   const cityName = (p: Place | null | undefined) => (!p || (p.isCurrent && p.name === 'Your location') ? '' : p.name);
 
-  // A saved city far from where you are is a trip: Plans switch to stays, flights, things to do.
-  const trip = !!(place && current && !place.isCurrent && distanceKm(current, place) > TRIP_KM);
+  const where = place ? { city: cityName(place), lat: place.lat, lon: place.lon, isHere: !!place.isCurrent, mapsApp } : null;
+
+  // Plans are for where you are (or near it). A saved city far away just shows its weather.
+  // If location is off we can't tell, so Plans stay on.
+  const nearYou = !place || !current || !!place.isCurrent || distanceKm(current, place) <= NEAR_KM;
   const plans = useMemo(() => {
-    if (!place || !forecast || !groups[0] || !days[0]) return [];
-    if (trip) {
-      const best = days.reduce((b, d, i) => (d.score > days[b].score ? i : b), 0);
-      const bestDay = `${best === 0 ? 'Today' : DAY[days[best].date.getDay()]} is ${days[best].score}/10`;
-      return tripPlansFor(place.name, cityName(current) || undefined, bestDay);
-    }
-    return plansFor(groups[0], liveNow(forecast), days[0].score, cityName(place));
+    if (!nearYou || !place || !forecast || !groups[0] || !days[0]) return [];
+    return plansFor(groups[0], liveNow(forecast), days[0].score, where!);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [place, current, trip, groups, days, forecast, nowHour]);
+  }, [place, nearYou, groups, days, forecast, nowHour, mapsApp]);
 
   // Today's score for each city in the list (when we have its forecast).
   const scoreRow = useCallback(
@@ -251,7 +252,7 @@ function Home() {
   };
   const openPlans = (source: 'button' | 'alert', focus?: PlanKind) => {
     tap();
-    track('plans_open', { source, mode: trip ? 'trip' : 'local' });
+    track('plans_open', { source });
     setPlansOpen({ focus });
   };
 
@@ -277,7 +278,19 @@ function Home() {
           <View style={styles.fillGrow} {...swipe.panHandlers}>
             {/* Top: where we are rating (tap for your cities), page dots, and share. */}
             <View style={styles.top}>
-              <View style={styles.topSide} />
+              <View style={styles.topSide}>
+                {ready && plans.length > 0 && (
+                  <Pressable
+                    style={styles.plansPill}
+                    onPress={() => openPlans('button')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Plans: ideas for what to do in this weather"
+                  >
+                    <Text style={styles.plansPillText}>Plans</Text>
+                  </Pressable>
+                )}
+              </View>
               {place && fontsReady && (
                 <Pressable
                   style={styles.place}
@@ -331,9 +344,7 @@ function Home() {
                   showVibe={showVibe}
                   onToggleVibe={toggleVibe}
                   callout={picked === 0 ? callout : undefined}
-                  onAction={trip ? undefined : (kind) => openPlans('alert', kind)}
-                  plansLabel={plans.length ? (trip ? 'Plan a trip' : 'Plans') : undefined}
-                  onPlans={() => openPlans('button')}
+                  onAction={plans.length ? (kind) => openPlans('alert', kind) : undefined}
                 />
               )}
             </View>
@@ -378,11 +389,11 @@ function Home() {
             onClose={() => setPlansOpen(null)}
             plans={plans}
             focus={plansOpen?.focus}
-            city={cityName(place)}
-            trip={trip}
+            where={where!}
+            onMapsApp={(app) => { tap(); setMapsApp(app); saveMapsApp(app); }}
             background={look.colors[0]}
             onLinkTap={(kind, l) =>
-              track(kind === 'search' ? 'plans_search' : 'plan_tap', { kind, partner: l.partner, mode: trip ? 'trip' : 'local' })
+              track(kind === 'search' ? 'plans_search' : 'plan_tap', { kind, partner: l.partner })
             }
           />
         )}
@@ -402,11 +413,9 @@ function Home() {
 }
 
 // The score, its word, and what to do about it.
-function Verdict({ day, label, showVibe, onToggleVibe, callout, onAction, plansLabel, onPlans }: {
+function Verdict({ day, label, showVibe, onToggleVibe, callout, onAction }: {
   day: DayVibe; label: string; showVibe: boolean; onToggleVibe: () => void; callout?: Callout;
-  onAction?: (kind: PlanKind) => void; // undefined on a trip city (no rides there yet)
-  plansLabel?: string;
-  onPlans: () => void;
+  onAction?: (kind: PlanKind) => void; // undefined for a far-away city (no rides there)
 }) {
   const { width, height } = useWindowDimensions();
   // As tall as the phone allows, while leaving room for everything else on short phones.
@@ -449,13 +458,6 @@ function Verdict({ day, label, showVibe, onToggleVibe, callout, onAction, plansL
             </Pressable>
           )}
         </View>
-      )}
-
-      {plansLabel && (
-        <Pressable style={[styles.plans, !callout && styles.plansAlone]} onPress={onPlans} accessibilityRole="button">
-          <Ionicons name="compass-outline" size={20} color={INK.full} />
-          <Text style={styles.plansText}>{plansLabel}</Text>
-        </Pressable>
       )}
     </View>
   );
@@ -508,7 +510,7 @@ const styles = StyleSheet.create({
   page: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 10 },
 
   top: { flexDirection: 'row', alignItems: 'center', minHeight: 40 },
-  topSide: { width: 40 },
+  topSide: { width: 72 },
   topRight: { alignItems: 'flex-end' },
   place: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4, paddingHorizontal: 10 },
   placeText: { color: INK.full, fontFamily: F.semi, fontSize: 18, flexShrink: 1 },
@@ -517,13 +519,8 @@ const styles = StyleSheet.create({
   pageDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: INK.faint },
   pageDotOn: { backgroundColor: INK.full },
   fillGrow: { flexGrow: 1 },
-  plans: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12,
-    alignSelf: 'stretch', maxWidth: 360, width: '100%',
-    borderRadius: 999, paddingVertical: 14, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.55)',
-  },
-  plansAlone: { marginTop: 26 },
-  plansText: { color: INK.full, fontFamily: F.bold, fontSize: 17 },
+  plansPill: { alignSelf: 'flex-start', backgroundColor: INK.shade, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
+  plansPillText: { color: INK.full, fontFamily: F.bold, fontSize: 15 },
 
   hero: { flex: 1, justifyContent: 'center', paddingVertical: 16 },
   notice: { color: INK.strong, fontFamily: F.text, fontSize: 17, lineHeight: 25, textAlign: 'center' },

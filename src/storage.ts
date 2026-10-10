@@ -6,6 +6,7 @@ import type { Place } from './places';
 
 const CITIES = 'vibe.cities.v1';
 const ID = 'vibe.id.v1';
+const MAPS = 'skyscore.maps.v1';
 export const MAX_CITIES = 12;
 
 export async function loadCities(): Promise<Place[]> {
@@ -37,4 +38,19 @@ export async function anonymousId(): Promise<string> {
   } catch {
     return 'v-unsaved';
   }
+}
+
+// Which Maps app nearby places open in (iPhone only; Android always uses Google Maps).
+export async function loadMapsApp(): Promise<'apple' | 'google' | null> {
+  try {
+    const v = await AsyncStorage.getItem(MAPS);
+    return v === 'apple' || v === 'google' ? v : null;
+  } catch {
+    return null;
+  }
+}
+export async function saveMapsApp(app: 'apple' | 'google'): Promise<void> {
+  try {
+    await AsyncStorage.setItem(MAPS, app);
+  } catch {}
 }

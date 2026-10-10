@@ -9,12 +9,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { searchLinks, type Plan, type PlanKind } from './plans';
-import type { Link } from './partners';
+import { searchLinks, type Plan, type PlanKind, type Where } from './plans';
+import type { Link, MapsApp } from './partners';
 import { F, INK } from './theme';
 
 const ICON: Record<PlanKind, keyof typeof Ionicons.glyphMap> = {
-  ride: 'car-outline', food: 'bag-handle-outline', table: 'restaurant-outline', tonight: 'ticket-outline', outside: 'sunny-outline',
+  ride: 'car-outline', food: 'bag-handle-outline', coffee: 'cafe-outline', movie: 'film-outline', museum: 'library-outline',
+  park: 'leaf-outline', icecream: 'ice-cream-outline', brunch: 'restaurant-outline', outdoorTable: 'restaurant-outline',
+  bar: 'wine-outline', tonight: 'ticket-outline', lateFood: 'fast-food-outline',
 };
 const SHOWN = 3; // ideas shown before "More ideas"
 
@@ -23,12 +25,14 @@ type Props = {
   onClose: () => void;
   plans: Plan[];
   focus?: PlanKind; // open with this plan expanded (e.g. from the rain alert's "Get a ride")
-  city: string;
+  where: Where;
   background: string;
   onLinkTap?: (kind: PlanKind | 'search', link: Link) => void; // for counting taps
+  onMapsApp?: (app: MapsApp) => void; // iPhone only: switch between Apple Maps and Google Maps
 };
 
-export function PlansSheet({ visible, onClose, plans, focus, city, background, onLinkTap }: Props) {
+export function PlansSheet({ visible, onClose, plans, focus, where, background, onLinkTap, onMapsApp }: Props) {
+  const city = where.city;
   const open = (kind: PlanKind | 'search', l: Link) => {
     Haptics.selectionAsync().catch(() => {});
     onLinkTap?.(kind, l);
@@ -50,7 +54,7 @@ export function PlansSheet({ visible, onClose, plans, focus, city, background, o
 
   const ordered = focus ? [...plans].sort((a, b) => (a.kind === focus ? -1 : b.kind === focus ? 1 : 0)) : plans;
   const shown = more ? ordered : ordered.slice(0, SHOWN);
-  const results = searchLinks(query, city);
+  const results = searchLinks(query, where);
 
   const tapPlan = (p: Plan) => {
     if (p.links.length === 1) return open(p.kind, p.links[0]);
@@ -141,6 +145,19 @@ export function PlansSheet({ visible, onClose, plans, focus, city, background, o
             )}
           </ScrollView>
 
+          {Platform.OS === 'ios' && onMapsApp && (
+            <Pressable
+              onPress={() => onMapsApp(where.mapsApp === 'apple' ? 'google' : 'apple')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Places open in ${where.mapsApp === 'apple' ? 'Apple Maps' : 'Google Maps'}. Switch`}
+            >
+              <Text style={styles.mapsPref}>
+                Places open in {where.mapsApp === 'apple' ? 'Apple Maps' : 'Google Maps'} ·{' '}
+                <Text style={styles.mapsSwitch}>Use {where.mapsApp === 'apple' ? 'Google Maps' : 'Apple Maps'}</Text>
+              </Text>
+            </Pressable>
+          )}
           <Text style={styles.disclosure}>Some links may earn us a commission.</Text>
         </View>
       </KeyboardAvoidingView>
@@ -177,5 +194,7 @@ const styles = StyleSheet.create({
   providerText: { color: INK.onWhite, fontFamily: F.bold, fontSize: 15 },
   moreButton: { paddingVertical: 14 },
   more: { color: INK.full, fontFamily: F.semi, fontSize: 16, textAlign: 'center' },
-  disclosure: { color: INK.strong, fontFamily: F.text, fontSize: 12, textAlign: 'center', marginTop: 8 },
+  disclosure: { color: INK.strong, fontFamily: F.text, fontSize: 12, textAlign: 'center', marginTop: 6 },
+  mapsPref: { color: INK.strong, fontFamily: F.text, fontSize: 13, textAlign: 'center', marginTop: 8 },
+  mapsSwitch: { color: INK.full, fontFamily: F.semi, textDecorationLine: 'underline' },
 });

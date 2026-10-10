@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 // Every outbound link in one place. When a partner approves you, paste the
 // tracking parameters it gives you into AFFILIATE and every link picks them up.
 // Nothing else in the app needs to change.
@@ -62,3 +64,19 @@ export const tonight = (city: string): Link => {
 export const ticketmaster = (phrase: string, city: string) =>
   link('ticketmaster', 'Ticketmaster', `https://www.ticketmaster.com/search?q=${q(`${phrase} ${city}`.trim())}`);
 
+
+// ---------- nearby places (no partner, no commission: just useful) ----------
+// With no location given, both apps search around where the person is; for a saved
+// city we pass its centre (Apple) or its name (Google).
+export type MapsApp = 'apple' | 'google';
+// iPhone users can pick (Apple Maps by default); Android always uses Google Maps.
+export const defaultMapsApp = (): MapsApp => (Platform.OS === 'ios' ? 'apple' : 'google');
+
+export const maps = (what: string, near?: { lat: number; lon: number; city?: string }, app: MapsApp = defaultMapsApp()): Link => {
+  if (app === 'apple' && Platform.OS === 'ios') {
+    const center = near ? `&center=${near.lat.toFixed(4)},${near.lon.toFixed(4)}` : '';
+    return { partner: 'applemaps', label: 'Maps', url: `https://maps.apple.com/search?query=${q(what)}${center}` };
+  }
+  const where = near ? (near.city ? ` near ${near.city}` : ` near ${near.lat.toFixed(4)},${near.lon.toFixed(4)}`) : '';
+  return { partner: 'googlemaps', label: 'Maps', url: `https://www.google.com/maps/search/?api=1&query=${q(what + where)}` };
+};
