@@ -44,9 +44,9 @@ Weather data by Open-Meteo.com. Some Plans links may earn us a commission; it ne
 **Keywords** (100, comma-separated, no spaces after commas; don't repeat words already in the name or subtitle):
 forecast,rain,what to wear,umbrella,simple,minimal,sunset,daily,score,plans,outfit,nyc,temperature
 
-**Support URL:** your site (GitHub Pages address)
-**Marketing URL:** your site
-**Privacy Policy URL:** your site + /privacy.html
+**Support URL:** https://byilma.github.io/weather_app/
+**Marketing URL:** https://byilma.github.io/weather_app/
+**Privacy Policy URL:** https://byilma.github.io/weather_app/privacy.html
 
 **Age rating:** 4+ (no objectionable content). Answer "No" to all content questions.
 
