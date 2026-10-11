@@ -27,8 +27,8 @@ Rainy evening? Order in, catch a movie, or get a ride home dry. Perfect Saturday
 YOUR DAY AT A GLANCE
 Each hour drawn as a building in a small skyline. Taller is better. See the whole week in one row.
 
-A SKY THAT FOLLOWS THE SUN
-The screen takes on the day's mood and follows the real light where you are: dawn, golden hour, sunset, night. Quiet, slow, and off if you use Reduce Motion.
+THE REAL SKY, LIVE
+The screen shows what the sky is doing where you are, hour by hour: pale blue on a clear day, soft grey when it's cloudy, slate when it rains, stars on a clear night, and the real light at dawn and sunset. Quiet, slow, and still if you use Reduce Motion.
 
 YOUR CITIES
 Save the cities you care about and swipe between them.
@@ -54,7 +54,7 @@ forecast,rain,what to wear,umbrella,simple,minimal,sunset,daily,score,plans,outf
 1. Today, rated 1 to 10.
 2. One heads-up. That's it.
 3. Plans for the weather.
-4. A sky that follows the sun.
+4. The real sky, live.
 5. Share your sky.
 Upload the 6.9-inch set (1320 x 2868). Add the 6.3-inch set (1206 x 2622) if App Store Connect asks for it.
 
