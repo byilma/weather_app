@@ -21,7 +21,7 @@ One screen: today's score (1-10), one word, one sentence, and at most one callou
 - `src/PlansSheet.tsx` — the Plans sheet: top three ideas, "More ideas", a search, and the commission disclosure.
 - `src/partners.ts` — every outbound link. Nearby places open Apple Maps (iPhone) or Google Maps (Android). Partner links (Uber, Lyft, Uber Eats, DoorDash, OpenTable, Viator, Fever, Ticketmaster) pick up affiliate parameters from `AFFILIATE` once each partner approves you.
 - `src/storage.ts` — what's remembered on the phone: saved cities (up to 12) and an anonymous id.
-- `src/track.ts` — private tap counting (opens, Plans, which partner was tapped). Off until you paste a PostHog key; never sends location.
+- `src/track.ts` — private tap counting (opens, Plans, which partner was tapped). Sends to PostHog (US); never sends location.
 - `App.tsx` — the single screen: place (swipe between saved cities), score, word (tap it for the vibe), what to wear, one callout, the day's hours as a skyline, the week.
 
 ## Website
@@ -38,5 +38,5 @@ One screen: today's score (1-10), one word, one sentence, and at most one callou
 - `com.skyscore.app` in `app.json` is a placeholder bundle id: register your own (e.g. with your domain) before the first build.
 - Fill in `AFFILIATE` in `src/partners.ts` as partner programs approve you (start with Impact: Fever, SeatGeek, Ticketmaster, ClassPass; then Viator directly).
 - Open each link marked "test" in `src/partners.ts` on a phone once.
-- Paste a PostHog project key into `src/track.ts` to start counting taps (and mention anonymous usage analytics in the App Store privacy form).
+- PostHog is on (US project 657614). Mention anonymous usage analytics in the App Store privacy form.
 - `npm i -g eas-cli`, `eas build`, `eas submit`.

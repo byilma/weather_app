@@ -10,7 +10,7 @@
 
 import { anonymousId } from './storage';
 
-const POSTHOG_KEY = ''; // e.g. 'phc_...'
+const POSTHOG_KEY = 'phc_qfX3gUaYPfSBdEW8EoSLHV2YUKfMfAYvo5yKnKs9zP4t'; // public project key: safe to ship in the app (it can only send events)
 const POSTHOG_HOST = 'https://us.i.posthog.com';
 
 export type EventName =
