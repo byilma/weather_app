@@ -5,7 +5,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { placeKey, searchCities, type Place } from './places';
-import { F, INK } from './theme';
+import { F, themed, useInk, type Ink } from './theme';
 
 export type CityRow = { place: Place; score?: number; word?: string };
 
@@ -24,6 +24,8 @@ export function CitySearch({ visible, background, onClose, onPick, current, save
   const [results, setResults] = useState<Place[]>([]);
   const [status, setStatus] = useState<'idle' | 'searching' | 'none' | 'error'>('idle');
   const latest = useRef(0);
+  const styles = useStyles();
+  const INK = useInk();
 
   // Search as you type, with a short pause so we don't fire on every keystroke.
   useEffect(() => {
@@ -70,7 +72,8 @@ export function CitySearch({ visible, background, onClose, onPick, current, save
               onChangeText={setQuery}
               placeholder="Search a city"
               placeholderTextColor={INK.soft}
-              selectionColor="#fff"
+              selectionColor={INK.full}
+              keyboardAppearance={INK.statusBar === 'dark' ? 'light' : 'dark'}
               autoFocus
               autoCorrect={false}
               returnKeyType="search"
@@ -151,6 +154,7 @@ export function CitySearch({ visible, background, onClose, onPick, current, save
 
 // Today's score for a city, small, in the score typeface.
 function Score({ value, word }: { value: number; word?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.score}>
       <Text style={styles.scoreNum}>{value}</Text>
@@ -159,7 +163,7 @@ function Score({ value, word }: { value: number; word?: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themed((INK: Ink) => StyleSheet.create({
   fill: { flex: 1 },
   bar: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, paddingTop: 12, paddingBottom: 10 },
   field: {
@@ -170,7 +174,7 @@ const styles = StyleSheet.create({
   cancel: { color: INK.full, fontFamily: F.semi, fontSize: 16 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 22, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.2)',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: INK.line,
   },
   rowText: { flex: 1 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -183,4 +187,4 @@ const styles = StyleSheet.create({
   name: { color: INK.full, fontFamily: F.semi, fontSize: 18 },
   detail: { color: INK.strong, fontFamily: F.text, fontSize: 14, marginTop: 2 },
   status: { color: INK.strong, fontFamily: F.text, fontSize: 15, paddingHorizontal: 22, paddingTop: 16 },
-});
+}));

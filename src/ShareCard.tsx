@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import type { DayVibe } from './vibe';
-import { F, INK } from './theme';
+import { F, LIGHT_INK, themed, type Ink } from './theme';
 
 // TODO: once Skyscore is in the stores, put the download link here (e.g. your site's
 // short URL that redirects to the right store). It prints on every shared card, so each
@@ -35,6 +35,7 @@ export function ShareCard({ visible, onClose, onShared, place, day, colors }: Pr
   const d = day.date;
   const date = `${DAY[d.getDay()]}, ${MONTH[d.getMonth()]} ${d.getDate()}`;
   const scoreSize = side * 0.44;
+  const styles = useStyles();
 
   const share = async () => {
     setStatus('working');
@@ -57,9 +58,9 @@ export function ShareCard({ visible, onClose, onShared, place, day, colors }: Pr
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-      <Pressable style={styles.backdrop} onPress={close} accessibilityLabel="Close">
+      <Pressable style={fixed.backdrop} onPress={close} accessibilityLabel="Close">
         {/* Inner Pressable swallows taps so tapping the card doesn't close it. */}
-        <Pressable onPress={() => {}} style={styles.sheet}>
+        <Pressable onPress={() => {}} style={fixed.sheet}>
           <View ref={card} collapsable={false} style={[styles.card, { width: side, height: side }]}>
             <LinearGradient colors={colors} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
             <View style={styles.cardTop}>
@@ -83,16 +84,16 @@ export function ShareCard({ visible, onClose, onShared, place, day, colors }: Pr
           </View>
 
           <Pressable
-            style={[styles.shareButton, status === 'working' && styles.dim]}
+            style={[fixed.shareButton, status === 'working' && fixed.dim]}
             onPress={share}
             disabled={status === 'working'}
             accessibilityRole="button"
           >
-            <Text style={styles.shareText}>{status === 'working' ? 'Preparing…' : 'Share'}</Text>
+            <Text style={fixed.shareText}>{status === 'working' ? 'Preparing…' : 'Share'}</Text>
           </Pressable>
-          {status === 'error' && <Text style={styles.error}>Couldn't open sharing. Try again.</Text>}
+          {status === 'error' && <Text style={fixed.error}>Couldn&apos;t open sharing. Try again.</Text>}
           <Pressable onPress={close} hitSlop={12} accessibilityRole="button">
-            <Text style={styles.cancel}>Close</Text>
+            <Text style={fixed.cancel}>Close</Text>
           </Pressable>
         </Pressable>
       </Pressable>
@@ -100,9 +101,8 @@ export function ShareCard({ visible, onClose, onShared, place, day, colors }: Pr
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(5,8,16,0.72)', alignItems: 'center', justifyContent: 'center' },
-  sheet: { alignItems: 'center' },
+// The card itself takes the sky's colours and text.
+const useStyles = themed((INK: Ink) => StyleSheet.create({
   card: { borderRadius: 28, overflow: 'hidden', padding: 22, justifyContent: 'space-between' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   cardPlace: { color: INK.full, fontFamily: F.semi, fontSize: 15, flexShrink: 1 },
@@ -115,9 +115,16 @@ const styles = StyleSheet.create({
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   wordmark: { color: INK.strong, fontFamily: F.scoreB, fontSize: 18, letterSpacing: 0.5 },
   appLink: { color: INK.strong, fontFamily: F.semi, fontSize: 13 },
+}));
+
+// Around the card is a dark scrim, so these are always white.
+const INK = LIGHT_INK;
+const fixed = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(5,8,16,0.72)', alignItems: 'center', justifyContent: 'center' },
+  sheet: { alignItems: 'center' },
   shareButton: { marginTop: 22, backgroundColor: INK.full, borderRadius: 999, paddingVertical: 13, paddingHorizontal: 44 },
   dim: { opacity: 0.6 },
-  shareText: { color: INK.onWhite, fontFamily: F.bold, fontSize: 17 },
+  shareText: { color: INK.onFull, fontFamily: F.bold, fontSize: 17 },
   error: { color: INK.full, fontFamily: F.text, fontSize: 14, marginTop: 10 },
   cancel: { color: INK.strong, fontFamily: F.semi, fontSize: 16, marginTop: 16 },
 });

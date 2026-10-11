@@ -19,8 +19,8 @@ import { Sky } from './src/Sky';
 import { ShareCard } from './src/ShareCard';
 import { PlansSheet } from './src/PlansSheet';
 import { plansFor, type PlanKind } from './src/plans';
-import { skyLook } from './src/skyclock';
-import { F, FONT_ASSETS, INK } from './src/theme';
+import { skyLook, type SkyWeather } from './src/skyclock';
+import { DARK_INK, F, FONT_ASSETS, InkProvider, LIGHT_INK, themed, useInk, type Ink } from './src/theme';
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -203,18 +203,22 @@ function Home() {
     picked === 0
       ? (hoursOfDay.find((h) => h.time.getHours() === nowHour)?.cloud ?? 50)
       : hoursOfDay.filter((h) => h.isDay).reduce((a, h, _, arr) => a + h.cloud / arr.length, 0);
-  // Rain or snow falling in the sky: right now for today, or on a mostly wet day.
+  // What's falling: right now for today, or on a mostly wet day.
   const nowHourData = picked === 0 ? hoursOfDay.find((h) => h.time.getHours() === nowHour) : undefined;
   const wetDayHours = hoursOfDay.filter((h) => h.isDay && h.rainChance >= 60);
-  const fall: 'rain' | 'snow' | null =
+  const wetness = (hs: typeof hoursOfDay): SkyWeather['wet'] =>
+    hs.some((h) => h.sky === 'storm') ? 'storm' : hs.filter((h) => h.sky === 'snow').length > hs.length / 2 ? 'snow' : 'rain';
+  const wet: SkyWeather['wet'] =
     picked === 0
       ? nowHourData && nowHourData.rainChance >= 50 && nowHourData.precip > 0
-        ? nowHourData.sky === 'snow' ? 'snow' : 'rain'
+        ? wetness([nowHourData])
         : null
       : wetDayHours.length >= 4
-        ? wetDayHours.filter((h) => h.sky === 'snow').length > wetDayHours.length / 2 ? 'snow' : 'rain'
+        ? wetness(wetDayHours)
         : null;
-  const look = skyLook(day ? day.score : 5, picked === 0 ? now : null, forecast?.sun[picked], cloud, fall);
+  const look = skyLook({ cloud, wet }, picked === 0 ? now : null, forecast?.sun[picked]);
+  const INK = look.ink === 'dark' ? DARK_INK : LIGHT_INK; // text that reads on this sky
+  const styles = useStyles.for(INK);
 
   // The city name to use in partner searches. If the phone couldn't name where you are,
   // leave it out rather than searching for "Your location".
@@ -257,15 +261,16 @@ function Home() {
   };
 
   return (
+    <InkProvider value={INK}>
     <Sky look={look}>
       <SafeAreaView style={styles.fill}>
-        <StatusBar style="light" />
+        <StatusBar style={INK.statusBar} />
         <ScrollView
           contentContainerStyle={styles.page}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              tintColor="#fff"
+              tintColor={INK.full}
               onRefresh={async () => {
                 if (!place) return;
                 setRefreshing(true);
@@ -336,7 +341,7 @@ function Home() {
             <View style={styles.hero}>
               {notice && <Text style={styles.notice}>{notice}</Text>}
               {loadFailed && <Text style={styles.notice}>Couldn't reach the weather. Pull down to try again.</Text>}
-              {!ready && !loadFailed && <ActivityIndicator color="#fff" size="large" />}
+              {!ready && !loadFailed && <ActivityIndicator color={INK.full} size="large" />}
               {ready && (
                 <Verdict
                   day={day}
@@ -409,6 +414,7 @@ function Home() {
         )}
       </SafeAreaView>
     </Sky>
+    </InkProvider>
   );
 }
 
@@ -424,6 +430,8 @@ function Verdict({ day, label, showVibe, onToggleVibe, callout, onAction }: {
     Math.min(height * 0.27, Math.max(130, height - 520), day.score === 10 ? width * 0.5 : width * 0.68),
   );
   const [wordWidth, setWordWidth] = useState(0);
+  const styles = useStyles();
+  const INK = useInk();
 
   return (
     <View style={styles.verdict}>
@@ -470,6 +478,7 @@ function Skyline({ day, now }: { day: DayVibe; now: Date | null }) {
   const tall = height < 700 ? 4 : 5.5; // shorter buildings on small phones
   const hours = day.hours.filter((h) => h.time.getHours() >= 6);
   const nowHour = now ? now.getHours() : -1;
+  const styles = useStyles();
   return (
     <View style={styles.skyline} accessibilityLabel="Hour by hour, taller is better">
       <View style={[styles.buildings, { height: 20 + 10 * tall }]}>
@@ -504,7 +513,7 @@ function Skyline({ day, now }: { day: DayVibe; now: Date | null }) {
 
 const label = (h: number) => (h === 0 ? '12a' : h === 12 ? '12p' : h < 12 ? `${h}a` : `${h - 12}p`);
 
-const styles = StyleSheet.create({
+const useStyles = themed((INK: Ink) => StyleSheet.create({
   fill: { flex: 1 },
   // flexGrow lets the page fill the screen, so the middle can centre and the week sits at the bottom.
   page: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 10 },
@@ -543,7 +552,7 @@ const styles = StyleSheet.create({
   },
   calloutText: { color: INK.full, fontFamily: F.bold, fontSize: 16, paddingVertical: 7, paddingRight: 6 },
   button: { backgroundColor: INK.full, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
-  buttonText: { color: INK.onWhite, fontFamily: F.bold, fontSize: 15 },
+  buttonText: { color: INK.onFull, fontFamily: F.bold, fontSize: 15 },
 
   skyline: { marginBottom: 18 },
   buildings: { flexDirection: 'row', alignItems: 'flex-end' },
@@ -561,8 +570,8 @@ const styles = StyleSheet.create({
 
   week: { flexDirection: 'row', justifyContent: 'space-between' },
   dayChip: { alignItems: 'center', paddingTop: 8, paddingBottom: 9, borderRadius: 16, width: '13.6%' },
-  dayChipOn: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  dayChipOn: { backgroundColor: INK.chip },
   dayName: { color: INK.full, fontFamily: F.semi, fontSize: 12 },
   dayScore: { color: INK.full, fontFamily: F.scoreXB, fontSize: 28, lineHeight: 32, marginTop: 1 },
   dayWord: { color: INK.full, fontFamily: F.text, fontSize: 10 },
-});
+}));

@@ -1,17 +1,25 @@
-// The living sky: the score sets the mood, the clock sets the light.
+// The living sky: the real weather sets the colour, the clock sets the light.
 // Pure functions (no React) so the colours are easy to test and tune.
 //
-// Three colour stops (overhead, middle, horizon) are the score's sky, tinted
-// toward real twilight colours as the sun rises and sets. A soft glow marks
-// where the sun (or moon) is, and haze density follows cloud cover.
+// Three colour stops (overhead, middle, horizon) come from what the sky is doing
+// this hour (clear blue, broken cloud, overcast grey, rain, storm, snow), tinted
+// toward real twilight colours as the sun rises and sets. Clear nights get stars;
+// cloudy nights go charcoal instead of blue. Clouds drift in with cloud cover.
 
 import type { Sun } from './weather';
-import { skyFor } from './theme';
+
+export type SkyWeather = {
+  cloud: number; // 0-100 % cloud cover
+  wet: 'rain' | 'snow' | 'storm' | null; // falling right now (or most of that day)
+};
 
 export type SkyLook = {
   colors: [string, string, string]; // overhead, middle, horizon
+  ink: 'dark' | 'light'; // text colour that reads on this sky
   glow: { x: number; y: number; color: string; strength: number }; // x, y are 0-1 of the screen
-  haze: number; // 0-1, how much drifting haze to show
+  haze: number; // 0-1, how many clouds to show
+  night: number; // 0-1, how dark it is (dims the clouds)
+  stars: number; // 0-1, how visible the stars are (dark and clear)
   fall: 'rain' | 'snow' | null; // something falling from the sky right now
 };
 
@@ -37,78 +45,122 @@ function keepReadable(c: RGB, maxLum: number): RGB {
   }
   return c.map((v) => v * lo) as RGB;
 }
-// White on these limits is about 5.5:1 or better, with room for the glow on top.
-const MAX_LUM: [number, number, number] = [0.15, 0.13, 0.11];
+// White text on these limits is about 5.5:1 or better, with room for the glow on top.
+const MAX_LUM: [number, number, number] = [0.14, 0.13, 0.11];
 
 // ---------- the light through the day ----------
-// Each phase tints overhead / middle / horizon toward a colour by an amount.
-type Tint = [string, number];
-type Phase = { top: Tint; mid: Tint; hor: Tint };
-const NONE: Tint = ['#000000', 0];
-const PHASE: Record<string, Phase> = {
-  night: { top: ['#070b1e', 0.72], mid: ['#0e1533', 0.66], hor: ['#18203f', 0.6] },
-  blue: { top: ['#121a42', 0.58], mid: ['#283166', 0.5], hor: ['#5a4a7a', 0.48] }, // blue hour
-  dawn: { top: ['#2c3a6e', 0.36], mid: ['#7c6a8e', 0.34], hor: ['#e08c7a', 0.5] },
-  day: { top: NONE, mid: NONE, hor: NONE },
-  // Warm tints are already deep and saturated, and applied strongly at the horizon,
-  // so blue + orange doesn't turn to grey mud and the readability guard has little to darken.
-  golden: { top: ['#24497e', 0.15], mid: ['#7c5c80', 0.32], hor: ['#a8623a', 0.68] },
-  sunset: { top: ['#2e2a66', 0.4], mid: ['#7a3f6e', 0.48], hor: ['#b24e3c', 0.76] },
-  dusk: { top: ['#181d48', 0.58], mid: ['#4a3a72', 0.5], hor: ['#8e5072', 0.5] },
+// Each phase has a clear-sky look and an overcast look: [overhead, middle, horizon].
+// Daytime is airy and pale, sky blue to a warm peach haze at the horizon. Under
+// cloud everything drifts to soft greys; at night clear skies are deep navy and
+// cloudy ones charcoal.
+type Stops = [string, string, string];
+const PHASE: Record<string, { clear: Stops; grey: Stops; dark: number }> = {
+  night: { clear: ['#08112b', '#121d42', '#232a55'], grey: ['#15161b', '#1d1d23', '#2b2726'], dark: 1 },
+  blue: { clear: ['#16224f', '#2c3a72', '#5b5788'], grey: ['#1f2026', '#2b2a31', '#3b3536'], dark: 0.8 }, // blue hour
+  dawn: { clear: ['#7d9bcc', '#c4b4cf', '#f4bf9c'], grey: ['#9aa0ab', '#b3b0b2', '#c9bdb2'], dark: 0.3 },
+  day: { clear: ['#98c2ea', '#bde0e6', '#f0cd9c'], grey: ['#b4bcc6', '#c6ccd2', '#d6d3cc'], dark: 0 },
+  golden: { clear: ['#8fb3d3', '#c5d3c8', '#f2bd82'], grey: ['#a9adb3', '#bcbab4', '#cfc2ae'], dark: 0.05 },
+  sunset: { clear: ['#6a7fb0', '#c08e9c', '#f39d6a'], grey: ['#8d8f98', '#a69c9e', '#bba79a'], dark: 0.3 },
+  dusk: { clear: ['#26305e', '#4d4578', '#9a6380'], grey: ['#24242b', '#312e35', '#443b3c'], dark: 0.7 },
+};
+// Rain, storms and snow, by day. At night they fade into the cloudy night sky.
+const WET: Record<'rain' | 'storm' | 'snow', Stops> = {
+  rain: ['#46525f', '#56626e', '#6c757e'],
+  storm: ['#2a2b38', '#3d3d4f', '#545064'],
+  snow: ['#9ba7b7', '#b0bac6', '#c9ccd0'],
 };
 
 const MIN = 60 * 1000;
 
 // Keyframes for one day, in ms, relative to that day's sunrise (r) and sunset (s).
-function keyframes(sun: Sun): [number, Phase][] {
+function keyframes(sun: Sun): [number, string][] {
   const r = sun.rise.getTime();
   const s = sun.set.getTime();
   return [
-    [r - 90 * MIN, PHASE.night],
-    [r - 30 * MIN, PHASE.blue],
-    [r, PHASE.dawn],
-    [r + 60 * MIN, PHASE.day],
-    [s - 90 * MIN, PHASE.day],
-    [s - 40 * MIN, PHASE.golden],
-    [s, PHASE.sunset],
-    [s + 35 * MIN, PHASE.dusk],
-    [s + 80 * MIN, PHASE.night],
+    [r - 90 * MIN, 'night'],
+    [r - 30 * MIN, 'blue'],
+    [r, 'dawn'],
+    [r + 60 * MIN, 'day'],
+    [s - 90 * MIN, 'day'],
+    [s - 40 * MIN, 'golden'],
+    [s, 'sunset'],
+    [s + 35 * MIN, 'dusk'],
+    [s + 80 * MIN, 'night'],
   ];
 }
 
-const apply = (base: RGB, [tint, amt]: Tint): RGB => mixRGB(base, hex(tint), amt);
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const mixStops = (a: RGB[], b: RGB[], t: number) => a.map((c, i) => mixRGB(c, b[i], t));
 
-/**
- * The sky for a score at a moment. `now` and `sun` are the location's wall
- * clock. Pass `now = null` for a day other than today: you get its daytime sky.
- */
-export function skyLook(
-  score: number, now: Date | null, sun: Sun | undefined, cloud: number, fall: SkyLook['fall'] = null,
-): SkyLook {
-  const [top, hor] = skyFor(score).map(hex) as [RGB, RGB];
-  const base: [RGB, RGB, RGB] = [top, mixRGB(top, hor, 0.55), hor];
+// One phase's colours for this much cloud.
+function phaseStops(name: string, overcast: number): RGB[] {
+  const p = PHASE[name];
+  return mixStops(p.clear.map(hex), p.grey.map(hex), overcast);
+}
 
-  let phaseColors: [RGB, RGB, RGB] = base;
-  if (now && sun) {
-    const t = now.getTime();
-    const frames = keyframes(sun).map(([at, p]) => [at, [apply(base[0], p.top), apply(base[1], p.mid), apply(base[2], p.hor)]] as const);
-    if (t <= frames[0][0]) phaseColors = [...frames[0][1]] as [RGB, RGB, RGB];
-    else if (t >= frames[frames.length - 1][0]) phaseColors = [...frames[frames.length - 1][1]] as [RGB, RGB, RGB];
-    else {
-      for (let i = 1; i < frames.length; i++) {
-        const [t1, c1] = frames[i];
-        if (t <= t1) {
-          const [t0, c0] = frames[i - 1];
-          const k = t1 === t0 ? 1 : (t - t0) / (t1 - t0);
-          phaseColors = [0, 1, 2].map((j) => mixRGB(c0[j], c1[j], k)) as [RGB, RGB, RGB];
-          break;
-        }
-      }
+// Which phase we're in (blended between keyframes), as colours plus darkness.
+function atTime(now: Date | null, sun: Sun | undefined, overcast: number): { stops: RGB[]; dark: number } {
+  if (!now || !sun) return { stops: phaseStops('day', overcast), dark: 0 };
+  const t = now.getTime();
+  const frames = keyframes(sun);
+  const at = (i: number) => ({ stops: phaseStops(frames[i][1], overcast), dark: PHASE[frames[i][1]].dark });
+  if (t <= frames[0][0]) return at(0);
+  if (t >= frames[frames.length - 1][0]) return at(frames.length - 1);
+  for (let i = 1; i < frames.length; i++) {
+    if (t <= frames[i][0]) {
+      const k = (t - frames[i - 1][0]) / (frames[i][0] - frames[i - 1][0] || 1);
+      const a = at(i - 1);
+      const b = at(i);
+      return { stops: mixStops(a.stops, b.stops, k), dark: a.dark + (b.dark - a.dark) * k };
     }
   }
+  return at(frames.length - 1);
+}
 
-  const colors = phaseColors.map((c, i) => toHex(keepReadable(c, MAX_LUM[i]))) as [string, string, string];
-  return { colors, glow: glowAt(now, sun, cloud), haze: Math.max(0, Math.min(1, cloud / 100)), fall };
+// ---------- readability ----------
+// Dark text on light skies, white text on dark ones. Whichever wins, nudge the
+// sky just enough that small text stays at 4.5:1 or better.
+const MIN_LUM = 0.3; // floor under dark text (dark ink is about #141c2b)
+function lighten(c: RGB, minLum: number): RGB {
+  if (luminance(c) >= minLum) return c;
+  let lo = 0, hi = 1; // how far toward white
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    if (luminance(mixRGB(c, [255, 255, 255], mid)) >= minLum) hi = mid;
+    else lo = mid;
+  }
+  return mixRGB(c, [255, 255, 255], hi);
+}
+
+/**
+ * The sky for this weather at a moment. `now` and `sun` are the location's wall
+ * clock. Pass `now = null` for a day other than today: you get its daytime sky.
+ */
+export function skyLook(weather: SkyWeather, now: Date | null, sun: Sun | undefined): SkyLook {
+  const overcast = weather.wet ? 1 : clamp01((weather.cloud - 20) / 70);
+  let { stops, dark } = atTime(now, sun, overcast);
+  if (weather.wet) stops = mixStops(stops, WET[weather.wet].map(hex), 0.9 * (1 - dark));
+
+  // The middle (behind the score) counts double.
+  const lum = (luminance(stops[0]) + 2 * luminance(stops[1]) + luminance(stops[2])) / 4;
+  // Rain and storms always read as moody: white text, no flicker at dawn.
+  const moody = weather.wet === 'rain' || weather.wet === 'storm';
+  const ink: SkyLook['ink'] = !moody && lum >= 0.2 ? 'dark' : 'light';
+  const safe = stops.map((c, i) => (ink === 'dark' ? lighten(c, MIN_LUM) : keepReadable(c, MAX_LUM[i])));
+  const colors = safe.map(toHex) as [string, string, string];
+
+  const clear = weather.wet ? 0 : clamp01(1 - weather.cloud / 75);
+  const glow = glowAt(now, sun, weather.cloud);
+  if (ink === 'dark') glow.strength *= 1.5; // a pale sky needs a little more to show the sun
+  return {
+    colors,
+    ink,
+    glow,
+    haze: weather.wet ? 0.85 : clamp01(weather.cloud / 100),
+    night: dark,
+    stars: clamp01((dark - 0.5) / 0.5) * clear,
+    fall: weather.wet === 'snow' ? 'snow' : weather.wet ? 'rain' : null,
+  };
 }
 
 // Where the sun (or moon) is, and how strong its glow should be.

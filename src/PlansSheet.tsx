@@ -3,15 +3,15 @@
 
 import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { searchLinks, type Plan, type PlanKind, type Where } from './plans';
-import type { Link, MapsApp } from './partners';
-import { F, INK } from './theme';
+import { openLink, type Link, type MapsApp } from './partners';
+import { F, themed, useInk, type Ink } from './theme';
 
 const ICON: Record<PlanKind, keyof typeof Ionicons.glyphMap> = {
   ride: 'car-outline', food: 'bag-handle-outline', coffee: 'cafe-outline', movie: 'film-outline', museum: 'library-outline',
@@ -33,10 +33,12 @@ type Props = {
 
 export function PlansSheet({ visible, onClose, plans, focus, where, background, onLinkTap, onMapsApp }: Props) {
   const city = where.city;
+  const styles = useStyles();
+  const INK = useInk();
   const open = (kind: PlanKind | 'search', l: Link) => {
     Haptics.selectionAsync().catch(() => {});
     onLinkTap?.(kind, l);
-    Linking.openURL(l.url).catch(() => {});
+    openLink(l);
   };
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -86,7 +88,8 @@ export function PlansSheet({ visible, onClose, plans, focus, where, background, 
               onChangeText={setQuery}
               placeholder="Search anything to do"
               placeholderTextColor={INK.soft}
-              selectionColor="#fff"
+              selectionColor={INK.full}
+              keyboardAppearance={INK.statusBar === 'dark' ? 'light' : 'dark'}
               returnKeyType="search"
               autoCorrect={false}
               clearButtonMode="while-editing"
@@ -100,7 +103,7 @@ export function PlansSheet({ visible, onClose, plans, focus, where, background, 
                   <Pressable key={r.title} style={styles.row} onPress={() => open('search', r.link)} accessibilityRole="link">
                     <View style={styles.rowText}>
                       <Text style={styles.rowTitle} numberOfLines={1}>{r.title}</Text>
-                      <Text style={styles.rowWhy}>on {r.link.label}</Text>
+                      <Text style={styles.rowWhy}>{r.why ?? `on ${r.link.label}`}</Text>
                     </View>
                     <Ionicons name="arrow-forward" size={18} color={INK.strong} />
                   </Pressable>
@@ -165,7 +168,7 @@ export function PlansSheet({ visible, onClose, plans, focus, where, background, 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = themed((INK: Ink) => StyleSheet.create({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(5,8,16,0.5)' },
   dock: { flex: 1, justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 10 },
@@ -183,7 +186,7 @@ const styles = StyleSheet.create({
   list: { paddingBottom: 6 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.18)',
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: INK.line,
   },
   icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: INK.shade, alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1 },
@@ -191,10 +194,10 @@ const styles = StyleSheet.create({
   rowWhy: { color: INK.strong, fontFamily: F.text, fontSize: 14, marginTop: 2 },
   providers: { flexDirection: 'row', gap: 10, paddingVertical: 12, paddingLeft: 54 },
   provider: { backgroundColor: INK.full, borderRadius: 999, paddingVertical: 10, paddingHorizontal: 20 },
-  providerText: { color: INK.onWhite, fontFamily: F.bold, fontSize: 15 },
+  providerText: { color: INK.onFull, fontFamily: F.bold, fontSize: 15 },
   moreButton: { paddingVertical: 14 },
   more: { color: INK.full, fontFamily: F.semi, fontSize: 16, textAlign: 'center' },
   disclosure: { color: INK.strong, fontFamily: F.text, fontSize: 12, textAlign: 'center', marginTop: 6 },
   mapsPref: { color: INK.strong, fontFamily: F.text, fontSize: 13, textAlign: 'center', marginTop: 8 },
   mapsSwitch: { color: INK.full, fontFamily: F.semi, textDecorationLine: 'underline' },
-});
+}));

@@ -148,12 +148,37 @@ export function plansFor(today: Hour[], now: Date, score: number, where: Where):
 }
 
 /** Where a typed search goes: nearby on Maps first, then tickets, tours, and tables. */
-export function searchLinks(query: string, where: Where): { title: string; link: P.Link }[] {
+// Apps people might type by name, plus a few plain-word intents. Typing "ube"
+// already offers Uber; "taxi" offers both ride apps.
+const APPS: { names: string[]; links: () => P.Link[] }[] = [
+  { names: ['uber'], links: () => [P.uber()] },
+  { names: ['lyft'], links: () => [P.lyft()] },
+  { names: ['uber eats', 'ubereats'], links: () => [P.uberEats()] },
+  { names: ['doordash', 'door dash'], links: () => [P.doorDash()] },
+  { names: ['ride', 'taxi', 'cab', 'car'], links: () => [P.uber(), P.lyft()] },
+  { names: ['delivery', 'deliver', 'order in', 'takeout', 'take out'], links: () => [P.uberEats(), P.doorDash()] },
+];
+
+function appMatches(text: string): P.Link[] {
+  const t = text.toLowerCase();
+  const found: P.Link[] = [];
+  for (const a of APPS) {
+    const hit = a.names.some((n) => n === t || (t.length >= 3 && n.startsWith(t)) || t.startsWith(n + ' '));
+    if (hit) for (const l of a.links()) if (!found.some((f) => f.partner === l.partner)) found.push(l);
+  }
+  return found;
+}
+
+export function searchLinks(query: string, where: Where): { title: string; why?: string; link: P.Link }[] {
   const text = query.trim();
   if (!text) return [];
   const near = where.isHere ? undefined : { lat: where.lat, lon: where.lon, city: where.city || undefined };
+  const nearby = { title: `Nearby: “${text}”`, link: P.maps(text, near, where.mapsApp) };
+  const apps = appMatches(text);
+  // Asked for an app by name: open the app, with a Maps search as a fallback.
+  if (apps.length) return [...apps.map((l) => ({ title: l.label, why: 'Open the app', link: l })), nearby];
   return [
-    { title: `Nearby: “${text}”`, link: P.maps(text, near, where.mapsApp) },
+    nearby,
     { title: `Tickets: “${text}”`, link: P.ticketmaster(text, where.city) },
     { title: `Things to do: “${text}”`, link: P.viator(text, where.city) },
     { title: `Restaurants: “${text}”`, link: P.openTable(text, where.city) },

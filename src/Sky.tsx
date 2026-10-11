@@ -1,6 +1,7 @@
-// The background: a living sky. Colours come from skyclock.ts (score + time of day).
-// Motion is deliberately slow and faint: a sun/moon glow that breathes, and haze
-// that drifts across over a minute or two. It all stops if Reduce Motion is on.
+// The background: a living sky. Colours come from skyclock.ts (this hour's weather
+// + time of day). Motion is deliberately slow and faint: a sun/moon glow that
+// breathes, clouds that drift across over a couple of minutes, stars that twinkle
+// on clear nights. It all stops if Reduce Motion is on.
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
@@ -31,7 +32,8 @@ export function Sky({ look, children }: { look: SkyLook; children: ReactNode }) 
       <Gradient colors={look.colors} reduce={reduce} />
       {size.w > 0 && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Haze w={size.w} h={size.h} amount={look.haze} reduce={reduce} />
+          {look.stars > 0.02 && <Stars w={size.w} h={size.h} amount={look.stars} reduce={reduce} />}
+          <Clouds w={size.w} h={size.h} amount={look.haze} night={look.night} pale={look.ink === 'dark'} reduce={reduce} />
           {look.fall && !reduce && <Fall kind={look.fall} w={size.w} h={size.h} />}
           <Glow w={size.w} h={size.h} glow={look.glow} reduce={reduce} />
         </View>
@@ -126,64 +128,128 @@ function Glow({ w, h, glow, reduce }: { w: number; h: number; glow: SkyLook['glo
   );
 }
 
-// Haze: three faint bands drifting sideways at different speeds. Thicker when cloudy.
-const BANDS = [
-  { y: 0.16, height: 0.2, seconds: 60, from: -0.3 },
-  { y: 0.44, height: 0.16, seconds: 85, from: 0.25 },
-  { y: 0.7, height: 0.22, seconds: 110, from: -0.1 },
+// Clouds: soft puffs drifting left to right, wrapping around. None on a clear
+// day, up to six when it's overcast. Greyer and fainter at night.
+const CLOUDS = [
+  { y: 0.1, size: 0.62, seconds: 150, start: 0.15 },
+  { y: 0.3, size: 0.48, seconds: 190, start: 0.65 },
+  { y: 0.2, size: 0.7, seconds: 170, start: 0.45 },
+  { y: 0.52, size: 0.5, seconds: 210, start: 0.9 },
+  { y: 0.04, size: 0.55, seconds: 230, start: 0.35 },
+  { y: 0.42, size: 0.66, seconds: 200, start: 0.05 },
 ];
 
-function Haze({ w, h, amount, reduce }: { w: number; h: number; amount: number; reduce: boolean }) {
-  const opacity = 0.02 + 0.1 * amount;
+function Clouds({ w, h, amount, night, pale, reduce }: {
+  w: number; h: number; amount: number; night: number; pale: boolean; reduce: boolean;
+}) {
+  if (amount < 0.12) return null;
+  const count = Math.min(CLOUDS.length, Math.max(1, Math.round(amount * CLOUDS.length)));
+  // White on a pale sky needs more body to show; on a dark sky a little goes a long way.
+  const opacity = (pale ? 0.16 + 0.16 * amount : 0.07 + 0.09 * amount) * (1 - 0.45 * night);
+  const color = night > 0.5 ? '#c9ccd6' : '#ffffff';
   return (
     <>
-      {BANDS.map((b, i) => (
-        <Band key={i} w={w} h={h} band={b} opacity={opacity} reduce={reduce} />
+      {CLOUDS.slice(0, count).map((c, i) => (
+        <Cloud key={i} w={w} h={h} cloud={c} opacity={opacity} color={color} reduce={reduce} />
       ))}
     </>
   );
 }
 
-function Band({ w, h, band, opacity, reduce }: {
-  w: number; h: number; band: (typeof BANDS)[number]; opacity: number; reduce: boolean;
+function Cloud({ w, h, cloud, opacity, color, reduce }: {
+  w: number; h: number; cloud: (typeof CLOUDS)[number]; opacity: number; color: string; reduce: boolean;
 }) {
   const id = svgId(useId());
-  const bw = w * 1.6;
-  const bh = h * band.height;
-  const drift = useRef(new Animated.Value(band.from)).current;
+  const cw = w * cloud.size * 1.5;
+  const ch = cw * 0.42;
+  const pos = useRef(new Animated.Value(cloud.start)).current; // 0 = just off the left edge, 1 = off the right
 
   useEffect(() => {
     if (reduce) return;
+    const full = cloud.seconds * 1000;
+    pos.setValue(cloud.start);
+    const anim = Animated.sequence([
+      Animated.timing(pos, { toValue: 1, duration: full * (1 - cloud.start), easing: Easing.linear, useNativeDriver: true }),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pos, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(pos, { toValue: 1, duration: full, easing: Easing.linear, useNativeDriver: true }),
+        ]),
+      ),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [reduce, cloud.seconds, cloud.start, pos]);
+
+  const translateX = pos.interpolate({ inputRange: [0, 1], outputRange: [-cw, w] });
+  // Three overlapping soft ellipses make a puff.
+  const puffs = [
+    { cx: 0.32, cy: 0.62, rx: 0.3, ry: 0.36 },
+    { cx: 0.55, cy: 0.45, rx: 0.32, ry: 0.45 },
+    { cx: 0.74, cy: 0.64, rx: 0.26, ry: 0.32 },
+  ];
+  return (
+    <Animated.View style={{ position: 'absolute', left: 0, top: cloud.y * h, width: cw, height: ch, transform: [{ translateX }] }}>
+      <Svg width={cw} height={ch}>
+        <Defs>
+          <RadialGradient id={id} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={color} stopOpacity={opacity} />
+            <Stop offset="0.6" stopColor={color} stopOpacity={opacity * 0.55} />
+            <Stop offset="1" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        {puffs.map((p, i) => (
+          <Ellipse key={i} cx={p.cx * cw} cy={p.cy * ch} rx={p.rx * cw} ry={p.ry * ch} fill={`url(#${id})`} />
+        ))}
+      </Svg>
+    </Animated.View>
+  );
+}
+
+// Stars: a sprinkle of tiny dots in the upper sky on clear nights. A few twinkle,
+// very slowly. They fade in through dusk and out at dawn.
+const STARS = 42;
+
+function Stars({ w, h, amount, reduce }: { w: number; h: number; amount: number; reduce: boolean }) {
+  return (
+    <View style={[StyleSheet.absoluteFill, { opacity: amount }]} pointerEvents="none">
+      {Array.from({ length: STARS }, (_, i) => (
+        <Star key={i} i={i} w={w} h={h} reduce={reduce} />
+      ))}
+    </View>
+  );
+}
+
+function Star({ i, w, h, reduce }: { i: number; w: number; h: number; reduce: boolean }) {
+  const size = 1.2 + rand(i, 7) * 1.6;
+  const base = 0.35 + rand(i, 8) * 0.5;
+  const twinkles = i % 3 === 0;
+  const glow = useRef(new Animated.Value(base)).current;
+
+  useEffect(() => {
+    if (reduce || !twinkles) return;
+    const half = 2500 + rand(i, 9) * 3000;
     const ease = Easing.inOut(Easing.sin);
-    const half = (band.seconds * 1000) / 2;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(drift, { toValue: 0.35, duration: half, easing: ease, useNativeDriver: true }),
-        Animated.timing(drift, { toValue: -0.35, duration: half, easing: ease, useNativeDriver: true }),
+        Animated.delay(rand(i, 10) * 4000),
+        Animated.timing(glow, { toValue: base * 0.3, duration: half, easing: ease, useNativeDriver: true }),
+        Animated.timing(glow, { toValue: base, duration: half, easing: ease, useNativeDriver: true }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [reduce, band.seconds, drift]);
+  }, [reduce, twinkles, i, base, glow]);
 
-  const translateX = drift.interpolate({ inputRange: [-1, 1], outputRange: [-w, w] });
+  // Denser near the top, thinning toward the middle of the screen.
+  const y = rand(i, 11) ** 1.6 * h * 0.62;
   return (
     <Animated.View
       style={{
-        position: 'absolute', left: (w - bw) / 2, top: band.y * h - bh / 2, width: bw, height: bh,
-        transform: [{ translateX }],
+        position: 'absolute', left: rand(i, 12) * w, top: y, width: size, height: size,
+        borderRadius: size / 2, backgroundColor: '#ffffff', opacity: glow,
       }}
-    >
-      <Svg width={bw} height={bh}>
-        <Defs>
-          <RadialGradient id={id} cx="50%" cy="50%" rx="50%" ry="50%">
-            <Stop offset="0" stopColor="#ffffff" stopOpacity={opacity} />
-            <Stop offset="1" stopColor="#ffffff" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Ellipse cx={bw / 2} cy={bh / 2} rx={bw / 2} ry={bh / 2} fill={`url(#${id})`} />
-      </Svg>
-    </Animated.View>
+    />
   );
 }
 

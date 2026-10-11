@@ -13,13 +13,13 @@ One screen: today's score (1-10), one word, one sentence, and at most one callou
 - `src/weather.ts` — data source (Open-Meteo). Free tier is non-commercial; before launch, paste an Open-Meteo API Standard key into `OPEN_METEO_KEY` (same API, commercial licence).
 - `src/places.ts` — where we're rating: phone location (with city name) or a searched city. Falls back to New York if location is off.
 - `src/CitySearch.tsx` — the city picker that opens when you tap the place name.
-- `src/theme.ts` — the look: sky colours for each score, the two typefaces (Big Shoulders for the score, Figtree for everything else).
-- `src/skyclock.ts` — the living sky's colours: the score sets the mood, sunrise/sunset set the light (dawn, golden hour, sunset, dusk, night). Tune the `PHASE` tints here.
-- `src/Sky.tsx` — draws it: the gradient, a slowly breathing sun/moon glow, and faint haze that drifts with cloud cover. Motion stops when Reduce Motion is on.
+- `src/theme.ts` — the look: the two typefaces (Big Shoulders for the score, Figtree for everything else) and the two text colour sets (deep navy on pale daytime skies, white on dark ones).
+- `src/skyclock.ts` — the living sky's colours: this hour's real weather (clear, cloudy, rain, storm, snow) and the light (dawn, golden hour, sunset, dusk, night). It also picks dark or white text and nudges the sky so text stays readable. Tune the `PHASE` and `WET` palettes here.
+- `src/Sky.tsx` — draws it: the gradient, a slowly breathing sun/moon glow, clouds that drift across with cloud cover, stars on clear nights, rain and snow. Motion stops when Reduce Motion is on.
 - `src/ShareCard.tsx` — "share today": a square card previewed first, then sent to the share sheet as an image.
 - `src/plans.ts` — Plans: what to do in this weather, ranked by usefulness (never by payout). Coffee, a movie, a museum, a park, brunch, a table outside, a bar, a ride, order in, events. Plain rules, easy to tune.
 - `src/PlansSheet.tsx` — the Plans sheet: top three ideas, "More ideas", a search, and the commission disclosure.
-- `src/partners.ts` — every outbound link. Nearby places open Apple Maps (iPhone) or Google Maps (Android). Partner links (Uber, Lyft, Uber Eats, DoorDash, OpenTable, Viator, Fever, Ticketmaster) pick up affiliate parameters from `AFFILIATE` once each partner approves you.
+- `src/partners.ts` — every outbound link. Nearby places open Apple Maps or Google Maps. Uber, Lyft, Uber Eats, DoorDash and Google Maps open their own app when it's installed (`openLink`), otherwise the website. Partner links (Uber, Lyft, Uber Eats, DoorDash, OpenTable, Viator, Fever, Ticketmaster) pick up affiliate parameters from `AFFILIATE` once each partner approves you.
 - `src/storage.ts` — what's remembered on the phone: saved cities (up to 12) and an anonymous id.
 - `src/track.ts` — private tap counting (opens, Plans, which partner was tapped). Sends to PostHog (US); never sends location.
 - `App.tsx` — the single screen: place (swipe between saved cities), score, word (tap it for the vibe), what to wear, one callout, the day's hours as a skyline, the week.

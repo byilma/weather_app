@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 // Every outbound link in one place. When a partner approves you, paste the
 // tracking parameters it gives you into AFFILIATE and every link picks them up.
@@ -19,7 +19,9 @@ export const AFFILIATE: Record<string, string> = {
   ticketmaster: '',
 };
 
-export type Link = { partner: string; label: string; url: string };
+// `app` is the partner's own app address (uber://...). We try it first so the app
+// opens directly; if it isn't installed, the web `url` opens instead.
+export type Link = { partner: string; label: string; url: string; app?: string };
 
 const q = encodeURIComponent;
 const withAffiliate = (partner: string, url: string) => {
@@ -27,16 +29,32 @@ const withAffiliate = (partner: string, url: string) => {
   if (!extra) return url;
   return url + (url.includes('?') ? '&' : '?') + extra;
 };
-const link = (partner: string, label: string, url: string): Link => ({ partner, label, url: withAffiliate(partner, url) });
+const link = (partner: string, label: string, url: string, app?: string): Link => ({
+  partner, label, url: withAffiliate(partner, url), app: app && withAffiliate(partner, app),
+});
 
-// Rides. Uber's format is from its deep-link docs; opens the app if installed.
-export const uber = () => link('uber', 'Uber', 'https://m.uber.com/ul/?action=setPickup&pickup=my_location');
-// Lyft universal link (test).
-export const lyft = () => link('lyft', 'Lyft', 'https://lyft.com/ride?id=lyft');
+/** Open a link: the app if it's on the phone, otherwise the website. */
+export async function openLink(l: Link): Promise<void> {
+  if (l.app) {
+    try {
+      await Linking.openURL(l.app); // fails if the app isn't installed
+      return;
+    } catch {}
+  }
+  await Linking.openURL(l.url).catch(() => {});
+}
 
-// Delivery.
-export const uberEats = () => link('ubereats', 'Uber Eats', 'https://www.ubereats.com/');
-export const doorDash = () => link('doordash', 'DoorDash', 'https://www.doordash.com/');
+// Rides. Formats from Uber's and Lyft's deep-link docs.
+export const uber = () =>
+  link('uber', 'Uber', 'https://m.uber.com/ul/?action=setPickup&pickup=my_location', 'uber://?action=setPickup&pickup=my_location');
+export const lyft = () => link('lyft', 'Lyft', 'https://ride.lyft.com/', 'lyft://ridetype?id=lyft');
+
+// Delivery: open straight to the app's home (test).
+export const uberEats = () => link('ubereats', 'Uber Eats', 'https://www.ubereats.com/', 'ubereats://');
+export const doorDash = () => link('doordash', 'DoorDash', 'https://www.doordash.com/', 'doordash://');
+
+// The partners below have no documented app address for a search, so we open their
+// website; on phones with the app, their web links usually hand off to it.
 
 // Eat out (test): OpenTable search with a phrase and the city.
 export const openTable = (phrase: string, city: string) =>
@@ -67,7 +85,8 @@ export const ticketmaster = (phrase: string, city: string) =>
 
 // ---------- nearby places (no partner, no commission: just useful) ----------
 // With no location given, both apps search around where the person is; for a saved
-// city we pass its centre (Apple) or its name (Google).
+// city we pass its centre (Apple) or its name (Google). Apple Maps web addresses
+// always open the Maps app on iPhone.
 export type MapsApp = 'apple' | 'google';
 // iPhone users can pick (Apple Maps by default); Android always uses Google Maps.
 export const defaultMapsApp = (): MapsApp => (Platform.OS === 'ios' ? 'apple' : 'google');
@@ -78,5 +97,9 @@ export const maps = (what: string, near?: { lat: number; lon: number; city?: str
     return { partner: 'applemaps', label: 'Maps', url: `https://maps.apple.com/search?query=${q(what)}${center}` };
   }
   const where = near ? (near.city ? ` near ${near.city}` : ` near ${near.lat.toFixed(4)},${near.lon.toFixed(4)}`) : '';
-  return { partner: 'googlemaps', label: 'Maps', url: `https://www.google.com/maps/search/?api=1&query=${q(what + where)}` };
+  const url = `https://www.google.com/maps/search/?api=1&query=${q(what + where)}`;
+  // On iPhone, open the Google Maps app itself when it's installed (its documented URL scheme).
+  // On Android the web address already opens the Maps app.
+  const appUrl = Platform.OS === 'ios' ? `comgooglemaps://?q=${q(what + where)}` : undefined;
+  return { partner: 'googlemaps', label: 'Maps', url, app: appUrl };
 };
