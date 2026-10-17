@@ -1,9 +1,8 @@
 // Private tap counting: how many people open the app, open Plans, and tap which
 // partner. This is the evidence partners ask for ("active users", "clicks").
 //
-// Off until you paste a PostHog project key below (free tier is plenty to start;
-// posthog.com → new project → copy the project API key). Until then, events are
-// only printed in the dev console.
+// On: events go to the Skyscore PostHog project (US cloud). Clear POSTHOG_KEY to
+// turn counting off; events are then only printed in the dev console.
 //
 // What is sent: the event name, a few labels (which plan, which partner), and a
 // random anonymous id. Never the person's location, coordinates, or contacts.

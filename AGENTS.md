@@ -1,3 +1,5 @@
+> **Start with `HANDOFF.md`**: what Skyscore is, how every part works, current state, and what's next. Note: this app is a single screen (`App.tsx`) and does not use Expo Router; the routing section below is general Expo guidance for if a second screen is ever added.
+
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
 ## Expo has changed — do not trust your training data
